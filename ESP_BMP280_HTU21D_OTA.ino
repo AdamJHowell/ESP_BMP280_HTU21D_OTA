@@ -47,6 +47,16 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 		Serial.printf( "MQTT publish interval has been updated to %lu\n", publishInterval );
 		lastPublishTime = 0;
 	}
+	else if( strcmp( command, "changeSeaLevelPressure" ) == 0 )
+	{
+		Serial.println( "Changing the publish interval because MQTT received the 'changeTelemetryInterval' command." );
+		unsigned long tempValue = callbackJsonDoc["value"];
+		// Only update the value if it is greater than 400 hPa and less than 1500 hPa.
+		if( tempValue > 400 && tempValue < 1500 )
+			seaLevelPressure = tempValue;
+		Serial.printf( "Sea level pressure has been updated to %f\n", seaLevelPressure );
+		lastPublishTime = 0;
+	}
 	else if( strcmp( command, "publishStats" ) == 0 )
 	{
 		Serial.println( "Publishing stats because MQTT received the 'publishStats' command." );
@@ -55,7 +65,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	}
 	else
 		Serial.printf( "Unknown command: %s\n", command );
-}// End of onMessage() function.
+}  // End of onMessage() function.
 
 
 /**
@@ -118,7 +128,7 @@ void setup()
 	Serial.printf( "IP address: %s\n", ipAddress );
 
 	Serial.println( "Setup has completed.\n" );
-}// End of setup() function.
+}  // End of setup() function.
 
 
 /**
@@ -156,7 +166,7 @@ void configureOTA()
 	} );
 	ArduinoOTA.begin();
 	Serial.println( "OTA is configured and ready." );
-}// End of the configureOTA() function.
+}  // End of the configureOTA() function.
 
 
 /**
@@ -184,7 +194,7 @@ void setupHTU21D()
 	else
 		Serial.println( "The HTU21D has been configured." );
 
-}// End of setupHTU21D function.
+}  // End of setupHTU21D function.
 
 
 /**
@@ -208,9 +218,8 @@ void setupBMP280()
 	                    Adafruit_BMP280::FILTER_X16,       /* Filtering. */
 	                    Adafruit_BMP280::STANDBY_MS_500 ); /* Standby time. */
 
-	bmp_temp->printSensorDetails();
 	Serial.println( "Connected to the BMP280!\n" );
-}// End of setupBMP280 function.
+}  // End of setupBMP280 function.
 
 
 /**
@@ -218,7 +227,7 @@ void setupBMP280()
  */
 void wifiMultiConnect()
 {
-	digitalWrite( LED_PIN, 1 );// Turn the LED off to show a connection is being made.
+	digitalWrite( LED_PIN, 1 );  // Turn the LED off to show a connection is being made.
 
 	Serial.println( "\nEntering wifiMultiConnect()" );
 	for( size_t networkArrayIndex = 0; networkArrayIndex < sizeof( wifiSsidArray ); networkArrayIndex++ )
@@ -265,7 +274,7 @@ void wifiMultiConnect()
 
 			if( WiFi.status() == WL_CONNECTED )
 			{
-				digitalWrite( LED_PIN, 0 );// Turn the LED on to show the connection was successful.
+				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show the connection was successful.
 				Serial.print( "IP address: " );
 				snprintf( ipAddress, 16, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
 				Serial.println( ipAddress );
@@ -281,7 +290,7 @@ void wifiMultiConnect()
 			Serial.println( "That network was not found!" );
 	}
 	Serial.println( "Exiting wifiMultiConnect()\n" );
-}// End of wifiMultiConnect() function.
+}  // End of wifiMultiConnect() function.
 
 
 /**
@@ -310,7 +319,7 @@ int checkForSSID( const char *ssidName )
 	Serial.print( ssidName );
 	Serial.println( "' was not found!" );
 	return 0;
-}// End of checkForSSID() function.
+}  // End of checkForSSID() function.
 
 
 /**
@@ -338,7 +347,7 @@ void mqttMultiConnect( int maxAttempts )
 		if( WiFi.status() != WL_CONNECTED )
 			wifiMultiConnect();
 
-		digitalWrite( LED_PIN, 1 );// Turn the LED off to show a connection is being made.
+		digitalWrite( LED_PIN, 1 );  // Turn the LED off to show a connection is being made.
 
 		/*
 		 * The networkIndex variable is initialized to 2112.
@@ -377,7 +386,7 @@ void mqttMultiConnect( int maxAttempts )
 			if( mqttClient.connect( clientId ) )
 			{
 				lastMqttConnectionTime = millis();
-				digitalWrite( LED_PIN, 0 );// Turn the LED on to show the connection was successful.
+				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show the connection was successful.
 				Serial.println( " connected." );
 				if( !mqttClient.setBufferSize( BUFFER_SIZE ) )
 				{
@@ -441,7 +450,7 @@ void mqttMultiConnect( int maxAttempts )
 			delay( MILLIS_IN_SEC );
 		}
 	}
-}// End of mqttMultiConnect() function.
+}  // End of mqttMultiConnect() function.
 
 
 /**
@@ -450,7 +459,16 @@ void mqttMultiConnect( int maxAttempts )
 float cToF( float value )
 {
 	return value * 1.8 + 32;
-}// End of the cToF() function.
+}  // End of the cToF() function.
+
+
+/**
+ * @brief mToF() will convert meters to feet.
+ */
+float mToF( float value )
+{
+	return value * 3.28084;
+}  // End of the mToF() function.
 
 
 /**
@@ -465,7 +483,7 @@ float averageArray( float valueArray[] )
 		tempValue += valueArray[i];
 	}
 	return tempValue / arraySize;
-}// End of the averageArray() function.
+}  // End of the averageArray() function.
 
 
 /**
@@ -477,13 +495,14 @@ void addValue( float valueArray[], float value, float minValue, float maxValue )
 	// Prevent sensor anomalies from getting into the array.
 	if( value < minValue || value > maxValue )
 	{
+		Serial.printf( "\n\nValue %f is not between %f and %f!\n\n", value, minValue, maxValue );
 		invalidValueCount++;
 		return;
 	}
 	valueArray[2] = valueArray[1];
 	valueArray[1] = valueArray[0];
 	valueArray[0] = value;
-}// End of the addValue() function.
+}  // End of the addValue() function.
 
 
 /**
@@ -495,21 +514,16 @@ void addValue( float valueArray[], float value, float minValue, float maxValue )
 void readTelemetry()
 {
 	rssi = WiFi.RSSI();
-	// Read fresh data from the sensor.
-	// Get readings from the HTU21D.
-	float temporaryTemperature = htu21d.readTemperature();
-	float temporaryHumidity    = htu21d.readHumidity();
-	// Get readings from the BMP280.
-	sensors_event_t temp_event;
-	sensors_event_t pressure_event;
-	bmp_temp->getEvent( &temp_event );
-	bmp_pressure->getEvent( &pressure_event );
 
+	// Get readings from the HTU21D.
 	addValue( htuTempCArray, htu21d.readTemperature(), -42, 212 );
 	addValue( htuHumidityArray, htu21d.readHumidity(), 0, 100 );
-	addValue( bmpTempCArray, temp_event.temperature, -42, 212 );
-	addValue( bmpPressureArray, pressure_event.pressure, 400, 1500 );
-}// End of readTelemetry() function.
+
+	// Get readings from the BMP280.
+	addValue( bmpTempCArray, bmp280.readTemperature(), -42, 212 );
+	addValue( bmpPressureArray, bmp280.readPressure(), 40000, 150000 );
+	addValue( bmpAltitudeArray, bmp280.readAltitude( seaLevelPressure ), 0, 10000 );
+}  // End of readTelemetry() function.
 
 
 /**
@@ -543,7 +557,7 @@ void printTelemetry()
 	Serial.printf( "  mqttConnectCount: %u\n", mqttConnectCount );
 	Serial.printf( "  mqttCoolDownInterval: %lu\n", mqttCoolDownInterval );
 	if( networkIndex != 2112 )
-		Serial.printf( "Broker: %s:%d\n", mqttBrokerArray[networkIndex], mqttPortArray[networkIndex] );
+		Serial.printf( "  Broker: %s:%d\n", mqttBrokerArray[networkIndex], mqttPortArray[networkIndex] );
 	lookupMQTTCode( mqttClient.state(), buffer );
 	Serial.printf( "  MQTT state: %s\n", buffer );
 	Serial.printf( "  Publish count: %lu\n", publishCount );
@@ -551,18 +565,21 @@ void printTelemetry()
 	Serial.println();
 
 	Serial.println( "Environmental stats:" );
-	Serial.printf( "  HTU21D Temperature: %.2f C\n", averageArray( htuTempCArray ) );
-	Serial.printf( "  HTU21D Temperature: %.2f F\n", cToF( averageArray( htuTempCArray ) ) );
-	Serial.printf( "  HTU21D Humidity: %.2f %%\n", averageArray( htuHumidityArray ) );
-	Serial.printf( "  BMP280 Temperature: %.2f C\n", averageArray( bmpTempCArray ) );
-	Serial.printf( "  BMP280 Temperature: %.2f F\n", cToF( averageArray( bmpTempCArray ) ) );
-	Serial.printf( "  BMP280 Pressure: %.2f hPa\n", averageArray( bmpPressureArray ) );
+	Serial.printf( "  HTU21D temperature: %.2f C\n", averageArray( htuTempCArray ) );
+	Serial.printf( "  HTU21D temperature: %.2f F\n", cToF( averageArray( htuTempCArray ) ) );
+	Serial.printf( "  HTU21D humidity: %.2f %%\n", averageArray( htuHumidityArray ) );
+	Serial.printf( "  BMP280 temperature: %.2f C\n", averageArray( bmpTempCArray ) );
+	Serial.printf( "  BMP280 temperature: %.2f F\n", cToF( averageArray( bmpTempCArray ) ) );
+	Serial.printf( "  BMP280 pressure: %.2f hPa\n", averageArray( bmpPressureArray ) );
+	Serial.printf( "  BMP280 altitude: %.2f m\n", averageArray( bmpAltitudeArray ) );
+	Serial.printf( "  BMP280 altitude: %.2f f\n", mToF( averageArray( bmpAltitudeArray ) ) );
+	Serial.printf( "  Sea level pressure: %.2f hPa\n", seaLevelPressure );
 	Serial.printf( "  Invalid reading count from all sensors: %u\n", invalidValueCount );
 	Serial.println();
 
-	Serial.printf( "Publish count: %lu\n", publishCount );
-	Serial.printf( "Next telemetry poll in %lu seconds\n\n", telemetryInterval / MILLIS_IN_SEC );
-}// End of printTelemetry() function.
+	Serial.printf( "Next telemetry poll in %lu seconds\n", telemetryInterval / MILLIS_IN_SEC );
+	Serial.println( "\n" );
+}  // End of printTelemetry() function.
 
 
 /**
@@ -596,7 +613,7 @@ void lookupWifiCode( int code, char *buffer )
 		default:
 			snprintf( buffer, 26, "%s", "Unknown Wi-Fi status code" );
 	}
-}// End of lookupWifiCode() function.
+}  // End of lookupWifiCode() function.
 
 
 /**
@@ -648,7 +665,7 @@ void lookupMQTTCode( int code, char *buffer )
  */
 void publishTelemetry()
 {
-	char mqttString[BUFFER_SIZE];// A String to hold the JSON.
+	char mqttString[BUFFER_SIZE];  // A String to hold the JSON.
 
 	// Create a JSON Document on the stack.
 	StaticJsonDocument<BUFFER_SIZE> doc;
@@ -673,6 +690,8 @@ void publishTelemetry()
 	if( success )
 	{
 		Serial.println( "Successfully published to:" );
+		Serial.printf( "  %s\n", MQTT_TOPIC );
+
 		char buffer[20];
 		// Device topic format: <location>/<device>/<metric>
 		// Sensor topic format: <location>/<device>/<sensor>/<metric>
@@ -706,16 +725,22 @@ void publishTelemetry()
 		snprintf( buffer, 25, "%f", averageArray( bmpPressureArray ) );
 		if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer, false ) )
 			Serial.printf( "  %s\n", BMP_PRESSURE_TOPIC );
-
-		Serial.printf( "Successfully published to '%s'.\n", MQTT_TOPIC );
+		snprintf( buffer, 25, "%f", averageArray( bmpAltitudeArray ) );
+		if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer, false ) )
+			Serial.printf( "  %s\n", BMP_ALTITUDE_M_TOPIC );
+		snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeArray ) ) );
+		if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer, false ) )
+			Serial.printf( "  %s\n", BMP_ALTITUDE_F_TOPIC );
+		snprintf( buffer, 25, "%f", seaLevelPressure );
+		if( mqttClient.publish( SEA_LEVEL_PRESSURE_TOPIC, buffer, false ) )
+			Serial.printf( "  %s\n", SEA_LEVEL_PRESSURE_TOPIC );
 	}
 	else
 		Serial.printf( "Failed to publish to '%s'.\n", MQTT_TOPIC );
-	// Print the JSON to the Serial port.
-	Serial.println( mqttString );
 
-	Serial.printf( "Next MQTT publish in %lu seconds.\n\n", publishInterval / MILLIS_IN_SEC );
-}// End of publishTelemetry() function.
+	Serial.printf( "Next MQTT publish in %lu seconds.\n", publishInterval / MILLIS_IN_SEC );
+	Serial.println( "\n" );
+}  // End of publishTelemetry() function.
 
 
 /**
@@ -728,7 +753,7 @@ void toggleLED()
 		digitalWrite( LED_PIN, 1 );
 	else
 		digitalWrite( LED_PIN, 0 );
-}// End of toggleLED() function.
+}  // End of toggleLED() function.
 
 
 /**
@@ -758,8 +783,6 @@ void loop()
 	if( lastPublishTime == 0 || ( currentTime > publishInterval && ( currentTime - publishInterval ) > lastPublishTime ) )
 	{
 		publishCount++;
-		readTelemetry();
-		printTelemetry();
 		publishTelemetry();
 		lastPublishTime = millis();
 	}
@@ -774,14 +797,21 @@ void loop()
 			if( mqttClient.state() != 0 )
 				toggleLED();
 			else
-				digitalWrite( LED_PIN, 0 );// Turn the LED on to show both Wi-Fi and MQTT are connected.
+				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show both Wi-Fi and MQTT are connected.
 		}
 		else
-			digitalWrite( LED_PIN, 1 );// Turn the LED off to show that Wi-Fi is not connected.
+			digitalWrite( LED_PIN, 1 );  // Turn the LED off to show that Wi-Fi is not connected.
 		lastLedBlinkTime = millis();
 	}
 
-	// Check the number of invalid sensor readings, and reset the device if the count it too high.
+	// Reset the device if the number of invalid sensor readings is too high.
 	if( invalidValueCount > 10 )
+	{
+		Serial.println( "\n\n\n" );
+		Serial.println( "Too many invalid sensor readings have occurred!" );
+		Serial.println( "The device will reset in 5 seconds!" );
+		delay( 5 * MILLIS_IN_SEC );
+		Serial.println( "\n\n\n" );
 		ESP.restart();
-}// End of loop() function.
+	}
+}  // End of loop() function.
