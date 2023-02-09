@@ -127,6 +127,10 @@ void setup()
 
 	Serial.printf( "IP address: %s\n", ipAddress );
 
+	// Read the telemetry twice to populate the temperature, humidity, and pressure arrays.
+	readTelemetry();
+	readTelemetry();
+
 	Serial.println( "Setup has completed.\n" );
 }  // End of setup() function.
 
@@ -499,6 +503,29 @@ void addValue( float valueArray[], float value, float minValue, float maxValue )
 		invalidValueCount++;
 		return;
 	}
+
+	// This if() is meant to prevent this code from running for now.
+	if( value < 2112.2112 )
+	{
+		// ToDo: Check the difference between valueArray[0] and valueArray[1] and valueArray[2], to determine if the new value is out of range.
+		float delta1 = 0;
+		float delta2 = 0;
+		if( valueArray[1] > valueArray[0] )
+			delta1 = valueArray[1] - valueArray[0];
+		else
+			delta1 = valueArray[0] - valueArray[1];
+		if( valueArray[2] > valueArray[1] )
+			delta2 = valueArray[2] - valueArray[1];
+		else
+			delta2 = valueArray[1] - valueArray[2];
+		if( value > delta1 * 2 || value > delta2 * 2 )
+		{
+			Serial.printf( "\n\nValue %f is not between %f and %f!\n\n", value, minValue, maxValue );
+			invalidValueCount++;
+			return;
+		}
+	}
+
 	valueArray[2] = valueArray[1];
 	valueArray[1] = valueArray[0];
 	valueArray[0] = value;
