@@ -34,6 +34,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	{
 		Serial.println( "Reading and publishing sensor values because MQTT received the 'publishTelemetry' command." );
 		readTelemetry();
+		lastPollTime = millis();
 		publishTelemetry();
 		Serial.println( "Readings have been published." );
 	}
@@ -61,6 +62,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	{
 		Serial.println( "Publishing stats because MQTT received the 'publishStats' command." );
 		readTelemetry();
+		lastPollTime = millis();
 		publishTelemetry();
 	}
 	else
@@ -69,7 +71,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 
 
 /**
- * The setup() function runs once when the device is booted, and then loop() takes over.
+ * @brief setup() runs once, every time the device is booted, and then loop() takes over.
  */
 void setup()
 {
@@ -491,10 +493,40 @@ float averageArray( float valueArray[] )
 
 
 /**
+ * @brief findMaximum() will return the largest value in the passed array.
+ */
+float findMaximum( float valueArray[], unsigned int size )
+{
+	float maxValue = valueArray[0];
+	for( int i = 1; i < size; ++i )
+	{
+		if( valueArray[i] > maxValue )
+			maxValue = valueArray[i];
+	}
+	return maxValue;
+}  // End of the findMaximum() function.
+
+
+/**
+ * @brief findMinimum() will return the smallest value in the passed array.
+ */
+float findMinimum( float valueArray[], unsigned int size )
+{
+	float minValue = valueArray[0];
+	for( int i = 1; i < size; ++i )
+	{
+		if( valueArray[i] < minValue )
+			minValue = valueArray[i];
+	}
+	return minValue;
+}  // End of the findMinimum() function.
+
+
+/**
  * @brief addValue() will add the passed value to the 0th element of the passed array, after moving the existing array values to higher indexes.
  * If value is less than minValue, or greater than maxValue, it will be discarded and nothing will be added to valueArray.
  */
-void addValue( float valueArray[], float value, float minValue, float maxValue )
+void addValue( float valueArray[], unsigned int size, float value, float minValue, float maxValue )
 {
 	// Prevent sensor anomalies from getting into the array.
 	if( value < minValue || value > maxValue )
@@ -504,26 +536,20 @@ void addValue( float valueArray[], float value, float minValue, float maxValue )
 		return;
 	}
 
-	// This if() is meant to prevent this code from running for now.
-	if( value < 2112.2112 )
+	// Detect outliers.
+	float minArrayValue = findMinimum( valueArray, size );
+	float maxArrayValue = findMaximum( valueArray, size );
+	if( value < ( minArrayValue / 2 ) )
 	{
-		// ToDo: Check the difference between valueArray[0] and valueArray[1] and valueArray[2], to determine if the new value is out of range.
-		float delta1 = 0;
-		float delta2 = 0;
-		if( valueArray[1] > valueArray[0] )
-			delta1 = valueArray[1] - valueArray[0];
-		else
-			delta1 = valueArray[0] - valueArray[1];
-		if( valueArray[2] > valueArray[1] )
-			delta2 = valueArray[2] - valueArray[1];
-		else
-			delta2 = valueArray[1] - valueArray[2];
-		if( value > delta1 * 2 || value > delta2 * 2 )
-		{
-			Serial.printf( "\n\nValue %f is not between %f and %f!\n\n", value, minValue, maxValue );
-			invalidValueCount++;
-			return;
-		}
+		Serial.printf( "\n\nValue %f is less than half the smallest existing value of %f!\n\n", value, minArrayValue );
+		invalidValueCount++;
+		return;
+	}
+	if( value > ( maxArrayValue * 2 ) )
+	{
+		Serial.printf( "\n\nValue %f is more than double the largest existing value of %f!\n\n", value, maxArrayValue );
+		invalidValueCount++;
+		return;
 	}
 
 	valueArray[2] = valueArray[1];
@@ -543,13 +569,13 @@ void readTelemetry()
 	rssi = WiFi.RSSI();
 
 	// Get readings from the HTU21D.
-	addValue( htuTempCArray, htu21d.readTemperature(), -42, 212 );
-	addValue( htuHumidityArray, htu21d.readHumidity(), 0, 100 );
+	addValue( htuTempCArray, 3, htu21d.readTemperature(), -42, 212 );
+	addValue( htuHumidityArray, 3, htu21d.readHumidity(), 0, 100 );
 
 	// Get readings from the BMP280.
-	addValue( bmpTempCArray, bmp280.readTemperature(), -42, 212 );
-	addValue( bmpPressureArray, bmp280.readPressure(), 40000, 150000 );
-	addValue( bmpAltitudeArray, bmp280.readAltitude( seaLevelPressure ), 0, 10000 );
+	addValue( bmpTempCArray, 3, bmp280.readTemperature(), -42, 212 );
+	addValue( bmpPressureHPaArray, 3, bmp280.readPressure() / 100, 400, 1500 );
+	addValue( bmpAltitudeMArray, 3, bmp280.readAltitude( seaLevelPressure ), 0, 10000 );
 }  // End of readTelemetry() function.
 
 
@@ -597,9 +623,9 @@ void printTelemetry()
 	Serial.printf( "  HTU21D humidity: %.2f %%\n", averageArray( htuHumidityArray ) );
 	Serial.printf( "  BMP280 temperature: %.2f C\n", averageArray( bmpTempCArray ) );
 	Serial.printf( "  BMP280 temperature: %.2f F\n", cToF( averageArray( bmpTempCArray ) ) );
-	Serial.printf( "  BMP280 pressure: %.2f hPa\n", averageArray( bmpPressureArray ) );
-	Serial.printf( "  BMP280 altitude: %.2f m\n", averageArray( bmpAltitudeArray ) );
-	Serial.printf( "  BMP280 altitude: %.2f f\n", mToF( averageArray( bmpAltitudeArray ) ) );
+	Serial.printf( "  BMP280 pressure: %.2f hPa\n", averageArray( bmpPressureHPaArray ) );
+	Serial.printf( "  BMP280 altitude: %.2f m\n", averageArray( bmpAltitudeMArray ) );
+	Serial.printf( "  BMP280 altitude: %.2f f\n", mToF( averageArray( bmpAltitudeMArray ) ) );
 	Serial.printf( "  Sea level pressure: %.2f hPa\n", seaLevelPressure );
 	Serial.printf( "  Invalid reading count from all sensors: %u\n", invalidValueCount );
 	Serial.println();
@@ -683,7 +709,7 @@ void lookupMQTTCode( int code, char *buffer )
 		default:
 			snprintf( buffer, 29, "%s", "Unknown MQTT state code" );
 	}
-}
+}  // End of lookupMQTTCode() function.
 
 
 /**
@@ -706,7 +732,7 @@ void publishTelemetry()
 	doc["htuHumidity"]  = averageArray( htuHumidityArray );
 	doc["bmpTempC"]     = averageArray( bmpTempCArray );
 	doc["bmpTempF"]     = cToF( averageArray( bmpTempCArray ) );
-	doc["bmpPressure"]  = averageArray( bmpPressureArray );
+	doc["bmpPressure"]  = averageArray( bmpPressureHPaArray );
 	doc["publishCount"] = publishCount;
 
 	// Serialize the JSON into mqttString, with indentation and line breaks.
@@ -749,13 +775,13 @@ void publishTelemetry()
 		snprintf( buffer, 25, "%f", cToF( averageArray( bmpTempCArray ) ) );
 		if( mqttClient.publish( BMP_TEMP_F_TOPIC, buffer, false ) )
 			Serial.printf( "  %s\n", BMP_TEMP_F_TOPIC );
-		snprintf( buffer, 25, "%f", averageArray( bmpPressureArray ) );
+		snprintf( buffer, 25, "%f", averageArray( bmpPressureHPaArray ) );
 		if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer, false ) )
 			Serial.printf( "  %s\n", BMP_PRESSURE_TOPIC );
-		snprintf( buffer, 25, "%f", averageArray( bmpAltitudeArray ) );
+		snprintf( buffer, 25, "%f", averageArray( bmpAltitudeMArray ) );
 		if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer, false ) )
 			Serial.printf( "  %s\n", BMP_ALTITUDE_M_TOPIC );
-		snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeArray ) ) );
+		snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeMArray ) ) );
 		if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer, false ) )
 			Serial.printf( "  %s\n", BMP_ALTITUDE_F_TOPIC );
 		snprintf( buffer, 25, "%f", seaLevelPressure );
@@ -784,7 +810,7 @@ void toggleLED()
 
 
 /**
- * @brief The main loop function.
+ * @brief The main loop function, which continues execution after setup() finishes.
  */
 void loop()
 {

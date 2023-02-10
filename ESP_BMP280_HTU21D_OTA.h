@@ -59,14 +59,15 @@ const int MILLIS_IN_SEC              = 1000;                               // Th
 const int LED_PIN                    = 2;                                  // The blue LED on the Freenove devkit.
 unsigned int invalidValueCount       = 0;                                  // A counter of how many times invalid values have been measured.
 unsigned int networkIndex            = 2112;                               // Holds the correct index for the network arrays: wifiSsidArray[], wifiPassArray[], mqttBrokerArray[], and mqttPortArray[].
-unsigned long wifiCoolDownInterval   = 10 * MILLIS_IN_SEC;                 // How long to wait between Wi-Fi connection attempts.
-unsigned long mqttCoolDownInterval   = 10 * MILLIS_IN_SEC;                 // How long to wait between MQTT broker connection attempts.
-unsigned long publishInterval        = 30 * MILLIS_IN_SEC;                 // The delay in milliseconds between MQTT publishes.  This prevents "flooding" the broker.
-unsigned long telemetryInterval      = 15 * MILLIS_IN_SEC;                 // The delay in milliseconds between polls of the sensor.  This should be greater than 100 milliseconds.
-unsigned long ledBlinkInterval       = 200;                                // The interval between blinks of the LED (when MQTT is not connected).
+unsigned long wifiCoolDownInterval   = 10 * MILLIS_IN_SEC;                 // The interval between Wi-Fi connection attempts.
+unsigned long mqttCoolDownInterval   = 10 * MILLIS_IN_SEC;                 // The interval between MQTT connection attempts.
+unsigned long publishInterval        = 30 * MILLIS_IN_SEC;                 // The interval between MQTT publishes.  This prevents "flooding" the broker.
+unsigned long telemetryInterval      = 15 * MILLIS_IN_SEC;                 // The interval between polls of the sensor.  This should be greater than 100 milliseconds.
+unsigned long ledBlinkInterval       = 200;                                // The interval between LED state changes (when MQTT is not connected).
+unsigned long lastLedBlinkTime       = 0;                                  // The time of the last LED state change.
+unsigned long lastMqttConnectionTime = 0;                                  // The time of the last MQTT connection attempt.
 unsigned long lastPublishTime        = 0;                                  // The time of the last MQTT publish.
 unsigned long lastPollTime           = 0;                                  // The time of the last sensor poll.
-unsigned long lastLedBlinkTime       = 0;                                  // The time of the last telemetry process.
 unsigned long publishCount           = 0;                                  // A count of how many publishes have taken place.
 unsigned long printCount             = 0;                                  // A count of how many times the stats have been printed.
 unsigned long wifiConnectCount       = 0;                                  // A count for how many times the wifiConnect() function has been called.
@@ -74,16 +75,15 @@ unsigned long mqttConnectCount       = 0;                                  // A 
 unsigned long callbackCount          = 0;                                  // A count for how many times a callback was received.
 unsigned long wifiConnectionTimeout  = 10 * MILLIS_IN_SEC;                 // The maximum amount of time in milliseconds to wait for a WiFi connection before trying a different SSID.
 unsigned long mqttReconnectDelay     = 5 * MILLIS_IN_SEC;                  // When mqttMultiConnect is set to try multiple times, this is how long to delay between each attempt.
-unsigned long lastMqttConnectionTime = 0;                                  // The last time a MQTT connection was attempted.
 long rssi;                                                                 // A global to hold the Received Signal Strength Indicator.
 char macAddress[18];                                                       // The MAC address of the WiFi NIC.
 char ipAddress[16];                                                        // The IP address given to the device.
-float seaLevelPressure   = 1026.1;                                         // The local sea-level pressure. Provo Airport: https://forecast.weather.gov/data/obhistory/KPVU.html
-float htuTempCArray[]    = { 21.12, 21.12, 21.12 };                        // An array to hold the 3 most recent Celsius values.
-float htuHumidityArray[] = { 21.12, 21.12, 21.12 };                        // An array to hold the 3 most recent humidity values.
-float bmpTempCArray[]    = { 21.12, 21.12, 21.12 };                        // An array to hold the 3 most recent Celsius values.
-float bmpPressureArray[] = { 1024.0, 1024.0, 1024.0 };                     // An array to hold the 3 most recent barometric pressure values.
-float bmpAltitudeArray[] = { 1337.0, 1337.0, 1337.0 };                     // An array to hold the 3 most recent barometric pressure values.
+float seaLevelPressure      = 1026.1;                                      // The local sea-level pressure. Provo Airport: https://forecast.weather.gov/data/obhistory/KPVU.html
+float htuTempCArray[]       = { -21.12, 21.12, 42.42 };                    // An array to hold the 3 most recent Celsius values, initialized to reasonable levels.
+float htuHumidityArray[]    = { 1.1, 21.12, 99.99 };                       // An array to hold the 3 most recent humidity values, initialized to reasonable levels.
+float bmpTempCArray[]       = { -21.12, 21.12, 42.42 };                    // An array to hold the 3 most recent Celsius values, initialized to reasonable levels.
+float bmpPressureHPaArray[] = { 8.7, 882.64, 1083.8 };                     // An array to hold the 3 most recent barometric pressure values, initialized to reasonable levels.
+float bmpAltitudeMArray[]   = { -413.0, 1337.0, 3108.0 };                  // An array to hold the 3 most recent barometric pressure values, initialized to reasonable levels.
 
 
 // Create class objects.
