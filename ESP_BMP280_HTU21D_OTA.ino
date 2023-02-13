@@ -569,12 +569,12 @@ void readTelemetry()
 	rssi = WiFi.RSSI();
 
 	// Get readings from the HTU21D.
-	addValue( htuTempCArray, 3, htu21d.readTemperature(), -42, 212 );
+	addValue( htuTempCArray, 3, htu21d.readTemperature(), -40, 125 );
 	addValue( htuHumidityArray, 3, htu21d.readHumidity(), 0, 100 );
 
 	// Get readings from the BMP280.
-	addValue( bmpTempCArray, 3, bmp280.readTemperature(), -42, 212 );
-	addValue( bmpPressureHPaArray, 3, bmp280.readPressure() / 100, 400, 1500 );
+	addValue( bmpTempCArray, 3, bmp280.readTemperature(), -30, 80 );
+	addValue( bmpPressureHPaArray, 3, bmp280.readPressure() / 100, 300, 1500 );
 	addValue( bmpAltitudeMArray, 3, bmp280.readAltitude( seaLevelPressure ), 0, 10000 );
 }  // End of readTelemetry() function.
 
