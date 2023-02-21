@@ -9,6 +9,8 @@ include_directories( .
 add_executable( ESP_BMP280_HTU21D_OTA
 		ESP_BMP280_HTU21D_OTA.ino
 		ESP_BMP280_HTU21D_OTA.h
-		privateInfo.h )
+		privateInfo.h
+		PubSubClient.cpp
+		PubSubClient.h )
 
 set_target_properties( ESP_BMP280_HTU21D_OTA PROPERTIES LINKER_LANGUAGE CXX )

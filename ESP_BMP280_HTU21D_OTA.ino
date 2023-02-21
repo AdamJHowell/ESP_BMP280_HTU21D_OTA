@@ -88,7 +88,7 @@ void setup()
 
 	// Set up the onboard LED, and turn it on (this devkit uses 0, or LOW, to turn the LED on).
 	pinMode( LED_PIN, OUTPUT );
-	digitalWrite( LED_PIN, 0 );
+	digitalWrite( LED_PIN, LED_ON );
 
 	Serial.println( __FILE__ );
 
@@ -105,24 +105,8 @@ void setup()
 	Serial.println( "Connecting WiFi..." );
 	wifiMultiConnect();
 
-	// The networkIndex variable is initialized to 2112.  If it is still 2112 at this point, then WiFi failed to connect.
-	if( networkIndex != 2112 )
-	{
-		const char *mqttBroker = mqttBrokerArray[networkIndex];
-		const int mqttPort     = mqttPortArray[networkIndex];
-		// Set the MQTT client parameters.
-		mqttClient.setServer( mqttBroker, mqttPort );
-		// Assign the onMessage() function to handle MQTT callbacks.
-		mqttClient.setCallback( onMessage );
-		Serial.printf( "Using MQTT broker: %s\n", mqttBroker );
-		Serial.printf( "Using MQTT port: %d\n", mqttPort );
-	}
-	else
-	{
-		Serial.println( "\n\n---------------------------------" );
-		Serial.println( "Failed to connect to the network!" );
-		Serial.println( "---------------------------------\n\n" );
-	}
+	Serial.printf( "Using MQTT broker: %s\n", mqttClient.getServerDomain() );
+	Serial.printf( "Using MQTT port: %d\n", mqttClient.getServerPort() );
 
 	// Configure Over-The-Air update functionality.
 	configureOTA();
@@ -139,38 +123,92 @@ void setup()
 
 /**
  * @brief configureOTA() will configure and initiate Over The Air (OTA) updates for this device.
- * An excellent OTA guide can be found here:
- * https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
- * The setPort(), setHostname(), and setPassword() functions are optional.
  */
 void configureOTA()
 {
-	// Port defaults to 8266, but can be overridden here:
-	// ArduinoOTA.setPort( 8266 );
+#ifdef ESP8266
+	Serial.println( "Configuring OTA for the ESP8266" );
+	// Port defaults to 8266
+	// ArduinoOTA.setPort(8266);
 
-	// Hostname defaults to esp8266-[ChipID], but can be overridden here:
-	//	ArduinoOTA.setHostname( hostname );
+	// Hostname defaults to esp8266-[ChipID]
+	ArduinoOTA.setHostname( HOSTNAME.c_str() );
 
-	// No authentication by default, but a password can be set here:
-	// ArduinoOTA.setPassword( ( const char * )"abc123" );
+	// No authentication by default
+	ArduinoOTA.setPassword( otaPass );
 
-	// OTA callbacks are required:
-	ArduinoOTA.onStart( []() { Serial.println( "Starting OTA communication." ); } );
+	// Password can be set with it's md5 value as well
+	// MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+	// ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+	ArduinoOTA.onStart( []() {
+		String type;
+		if( ArduinoOTA.getCommand() == U_FLASH )
+			type = "sketch";
+		else  // U_SPIFFS
+			type = "filesystem";
+
+		// NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+		Serial.println( "Start updating " + type );
+	} );
+	ArduinoOTA.onEnd( []() {
+		Serial.println( "\nEnd" );
+	} );
+	ArduinoOTA.onProgress( []( unsigned int progress, unsigned int total ) {
+		Serial.printf( "Progress: %u%%\r", ( progress / ( total / 100 ) ) );
+	} );
+	ArduinoOTA.onError( []( ota_error_t error ) {
+		Serial.printf( "Error[%u]: ", error );
+		if( error == OTA_AUTH_ERROR ) Serial.println( "Auth Failed" );
+		else if( error == OTA_BEGIN_ERROR )
+			Serial.println( "Begin Failed" );
+		else if( error == OTA_CONNECT_ERROR )
+			Serial.println( "Connect Failed" );
+		else if( error == OTA_RECEIVE_ERROR )
+			Serial.println( "Receive Failed" );
+		else if( error == OTA_END_ERROR )
+			Serial.println( "End Failed" );
+	} );
+#else
+	Serial.println( "Configuring OTA for the ESP32" );
+	// The ESP32 port defaults to 3232
+	// ArduinoOTA.setPort( 3232 );
+	// The ESP32 hostname defaults to esp32-[MAC]
+	//	ArduinoOTA.setHostname( HOSTNAME.c_str() );  // I'm deliberately using the default.
+	// Authentication is disabled by default.
+	ArduinoOTA.setPassword( otaPass );
+	// Password can be set with it's md5 value as well
+	// MD5( admin ) = 21232f297a57a5a743894a0e4a801fc3
+	// ArduinoOTA.setPasswordHash( "21232f297a57a5a743894a0e4a801fc3" );
+	//	Serial.printf( "Using hostname '%s'\n", HOSTNAME.c_str() );
+
+	String type = "filesystem";  // SPIFFS
+	if( ArduinoOTA.getCommand() == U_FLASH )
+		type = "sketch";
+
+	// Configure the OTA callbacks.
+	ArduinoOTA.onStart( []() {
+		String type = "flash";  // U_FLASH
+		if( ArduinoOTA.getCommand() == U_SPIFFS )
+			type = "filesystem";
+		// NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+		Serial.print( "OTA is updating the " );
+		Serial.println( type );
+	} );
 	ArduinoOTA.onEnd( []() { Serial.println( "\nTerminating OTA communication." ); } );
 	ArduinoOTA.onProgress( []( unsigned int progress, unsigned int total ) { Serial.printf( "OTA progress: %u%%\r", ( progress / ( total / 100 ) ) ); } );
 	ArduinoOTA.onError( []( ota_error_t error ) {
 		Serial.printf( "Error[%u]: ", error );
 		if( error == OTA_AUTH_ERROR ) Serial.println( "OTA authentication failed!" );
-		else if( error == OTA_BEGIN_ERROR )
-			Serial.println( "OTA transmission failed to initiate properly!" );
-		else if( error == OTA_CONNECT_ERROR )
-			Serial.println( "OTA connection failed!" );
-		else if( error == OTA_RECEIVE_ERROR )
-			Serial.println( "OTA client was unable to properly receive data!" );
-		else if( error == OTA_END_ERROR )
-			Serial.println( "OTA transmission failed to terminate properly!" );
-	} );
+		else if( error == OTA_BEGIN_ERROR ) Serial.println( "OTA transmission failed to initiate properly!" );
+		else if( error == OTA_CONNECT_ERROR ) Serial.println( "OTA connection failed!" );
+		else if( error == OTA_RECEIVE_ERROR ) Serial.println( "OTA client was unable to properly receive data!" );
+		else if( error == OTA_END_ERROR ) Serial.println( "OTA transmission failed to terminate properly!" ); } );
+#endif
+
+	// Start listening for OTA commands.
 	ArduinoOTA.begin();
+
 	Serial.println( "OTA is configured and ready." );
 }  // End of the configureOTA() function.
 
@@ -229,73 +267,91 @@ void setupBMP280()
 
 
 /**
- * @brief wifiMultiConnect() will iterate through 'wifiSsidArray[]', attempting to connect with the password stored at the same index in 'wifiPassArray[]'.
+ * @brief wifiConnect() will attempt to connect to a single SSID.
+ */
+bool wifiConnect( const char *ssid, const char *password )
+{
+	wifiConnectCount++;
+	// Turn the LED off to show Wi-Fi is not connected.
+	digitalWrite( LED_PIN, LED_OFF );
+
+	Serial.printf( "Attempting to connect to Wi-Fi SSID '%s'", ssid );
+	WiFi.mode( WIFI_STA );
+	WiFi.setHostname( HOSTNAME.c_str() );
+	WiFi.begin( ssid, password );
+
+	unsigned long wifiConnectionStartTime = millis();
+
+	// Loop until connected, or until wifiConnectionTimeout.
+	while( WiFi.status() != WL_CONNECTED && ( millis() - wifiConnectionStartTime < wifiConnectionTimeout ) )
+	{
+		Serial.print( "." );
+		delay( 1000 );
+	}
+	Serial.println( "" );
+
+	if( WiFi.status() == WL_CONNECTED )
+	{
+		// Print that Wi-Fi has connected.
+		Serial.println( "\n+++++++++++++++++++" );
+		Serial.println( "Connected to Wi-Fi!" );
+		Serial.println( "+++++++++++++++++++\n" );
+		Serial.println( "Wi-Fi connection established!" );
+		snprintf( ipAddress, 16, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
+		// Turn the LED on to show that Wi-Fi is connected.
+		digitalWrite( LED_PIN, LED_ON );
+		return true;
+	}
+	Serial.println( "\n\n----------------------------------------------" );
+	Serial.println( "Wi-Fi failed to connect in the timeout period." );
+	Serial.println( "----------------------------------------------\n\n" );
+	return false;
+}  // End of the wifiConnect() function.
+
+/**
+ * @brief wifiMultiConnect() will iterate through the SSIDs in 'wifiSsidArray[]', and then use checkForSSID() determine which are in range.
+ * When a SSID is in range, wifiConnect() will be called with that SSID and password.
  */
 void wifiMultiConnect()
 {
-	digitalWrite( LED_PIN, 1 );  // Turn the LED off to show a connection is being made.
-
-	Serial.println( "\nEntering wifiMultiConnect()" );
-	for( size_t networkArrayIndex = 0; networkArrayIndex < sizeof( wifiSsidArray ); networkArrayIndex++ )
+	long time = millis();
+	if( lastWifiConnectTime == 0 || ( time > wifiCoolDownInterval && ( time - wifiCoolDownInterval ) > lastWifiConnectTime ) )
 	{
-		wifiConnectCount++;
-		// Get the details for this connection attempt.
-		const char *wifiSsid     = wifiSsidArray[networkArrayIndex];
-		const char *wifiPassword = wifiPassArray[networkArrayIndex];
-
-		// Announce the WiFi parameters for this connection attempt.
-		Serial.print( "Attempting to connect to SSID \"" );
-		Serial.print( wifiSsid );
-		Serial.println( "\"" );
-
-		// Don't even try to connect if the SSID cannot be found.
-		if( checkForSSID( wifiSsid ) )
+		Serial.println( "\nEntering wifiMultiConnect()" );
+		digitalWrite( LED_PIN, LED_OFF );  // Turn the LED off to show that Wi-Fi is not yet connected.
+		unsigned int arraySize = sizeof( wifiSsidArray );
+		for( unsigned int networkArrayIndex = 0; networkArrayIndex < arraySize; networkArrayIndex++ )
 		{
-			// Attempt to connect to this WiFi network.
-			Serial.printf( "Wi-Fi mode set to WIFI_STA %s\n", WiFi.mode( WIFI_STA ) ? "" : "Failed!" );
-			WiFi.begin( wifiSsid, wifiPassword );
+			// Get the details for this connection attempt.
+			const char *wifiSsid     = wifiSsidArray[networkArrayIndex];
+			const char *wifiPassword = wifiPassArray[networkArrayIndex];
 
-			unsigned long wifiConnectionStartTime = millis();
-			// Wait up to 10 seconds for a connection.
-			Serial.print( "Waiting up to " );
-			Serial.print( wifiConnectionTimeout / MILLIS_IN_SEC );
-			Serial.print( " seconds for a connection" );
-			/*
-			WiFi.status() return values:
-			WL_IDLE_STATUS      = 0,
-			WL_NO_SSID_AVAIL    = 1,
-			WL_SCAN_COMPLETED   = 2,
-			WL_CONNECTED        = 3,
-			WL_CONNECT_FAILED   = 4,
-			WL_CONNECTION_LOST  = 5,
-			WL_WRONG_PASSWORD   = 6,
-			WL_DISCONNECTED     = 7
-			*/
-			while( WiFi.status() != WL_CONNECTED && ( millis() - wifiConnectionStartTime < wifiConnectionTimeout ) )
-			{
-				Serial.print( "." );
-				delay( MILLIS_IN_SEC );
-			}
-			Serial.println( "" );
+			// Announce the Wi-Fi parameters for this connection attempt.
+			Serial.print( "Attempting to connect to to SSID \"" );
+			Serial.print( wifiSsid );
+			Serial.println( "\"" );
 
-			if( WiFi.status() == WL_CONNECTED )
+			// Don't even try to connect if the SSID cannot be found.
+			int ssidCount = checkForSSID( wifiSsid );
+			if( ssidCount < 1 )
 			{
-				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show the connection was successful.
-				Serial.print( "IP address: " );
-				snprintf( ipAddress, 16, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
-				Serial.println( ipAddress );
-				networkIndex = networkArrayIndex;
-				// Print that WiFi has connected.
-				Serial.println( "\nWiFi connection established!" );
+				Serial.printf( "Network '%s' was not found!\n\n", wifiSsid );
 				return;
 			}
-			else
-				Serial.println( "Unable to connect to WiFi!" );
+			// This is useful for detecting multiples APs.
+			if( ssidCount > 1 )
+				Serial.printf( "Found %d SSIDs matching '%s'.\n", ssidCount, wifiSsid );
+
+			// If the Wi-Fi connection is successful, set the mqttClient broker parameters.
+			if( wifiConnect( wifiSsid, wifiPassword ) )
+			{
+				mqttClient.setServer( mqttBrokerArray[networkArrayIndex], mqttPortArray[networkArrayIndex] );
+				break;
+			}
 		}
-		else
-			Serial.println( "That network was not found!" );
+		Serial.println( "Exiting wifiMultiConnect()\n" );
+		lastWifiConnectTime = millis();
 	}
-	Serial.println( "Exiting wifiMultiConnect()\n" );
 }  // End of wifiMultiConnect() function.
 
 
@@ -329,134 +385,52 @@ int checkForSSID( const char *ssidName )
 
 
 /**
- * @brief mqttMultiConnect() will:
- * 1. Check the WiFi connection, and reconnect WiFi as needed.
- * 2. Attempt to connect the MQTT client designated in 'mqttBrokerArray[networkIndex]' up to 'maxAttempts' number of times.
- * 3. Subscribe to the topic defined in 'MQTT_COMMAND_TOPIC'.
- * If the broker connection cannot be made, an error will be printed to the serial port.
+ * @brief mqttConnect() will connect to the MQTT broker.
  */
-void mqttMultiConnect( int maxAttempts )
+void mqttConnect()
 {
-	unsigned long time = millis();
-	// Connect the first time.  Avoid subtraction overflow.  Connect every interval.
-	if( lastMqttConnectionTime == 0 || ( ( time > mqttCoolDownInterval ) && ( time - mqttCoolDownInterval ) > lastMqttConnectionTime ) )
+	long time = millis();
+	// Connect the first time.  Avoid subtraction overflow.  Connect after cool down.
+	if( lastMqttConnectionTime == 0 || ( time > mqttCoolDownInterval && ( time - mqttCoolDownInterval ) > lastMqttConnectionTime ) )
 	{
 		mqttConnectCount++;
-		Serial.print( "Current time: " );
-		Serial.println( time );
-		Serial.print( "Last MQTT connection time: " );
-		Serial.println( lastMqttConnectionTime );
-		Serial.print( "MQTT boolean: " );
-		Serial.println( ( ( time > mqttCoolDownInterval ) && ( time - mqttCoolDownInterval ) > lastMqttConnectionTime ) );
+		digitalWrite( LED_PIN, LED_OFF );
+		Serial.println( "Connecting to the MQTT broker." );
 
-		Serial.println( "Function mqttMultiConnect() has initiated.\n" );
-		if( WiFi.status() != WL_CONNECTED )
-			wifiMultiConnect();
+		// setServer() call is now called in wifiMultiConnect().
+		//mqttClient.setServer( mqttBroker, mqttPort );
+		mqttClient.setCallback( onMessage );
 
-		digitalWrite( LED_PIN, 1 );  // Turn the LED off to show a connection is being made.
-
-		/*
-		 * The networkIndex variable is initialized to 2112.
-		 * If it is still 2112 at this point, then WiFi failed to connect.
-		 * This is only needed to display the name and port of the broker being used.
-		 */
-		if( networkIndex != 2112 )
+		// Connect to the broker, using the MAC address as the client ID.
+		if( mqttClient.connect( macAddress ) )
 		{
-			Serial.print( "Attempting to connect to the MQTT broker at '" );
-			Serial.print( mqttBrokerArray[networkIndex] );
-			Serial.print( ":" );
-			Serial.print( mqttPortArray[networkIndex] );
-			Serial.print( "' up to " );
-			Serial.print( maxAttempts );
-			Serial.println( " times." );
+			Serial.println( "\n+++++++++++++++++++++++++++++" );
+			Serial.println( "Connected to the MQTT broker." );
+			Serial.println( "+++++++++++++++++++++++++++++\n" );
+			mqttClient.subscribe( MQTT_COMMAND_TOPIC );
+			digitalWrite( LED_PIN, LED_ON );
 		}
 		else
 		{
-			Serial.print( "Attempting to connect to the MQTT broker up to " );
-			Serial.print( maxAttempts );
-			Serial.println( " times." );
+			Serial.println( "\n\n--------------------------------" );
+			Serial.println( "Failed to connect to the broker!" );
+			Serial.println( "--------------------------------\n\n" );
+
+			int mqttStateCode = mqttClient.state();
+			char buffer[29];
+			lookupMQTTCode( mqttStateCode, buffer );
+			Serial.printf( "MQTT state: %s\n", buffer );
+			Serial.printf( "MQTT state code: %d\n", mqttStateCode );
+
+			// This block increments the broker connection "cooldown" time by 10 seconds after every failed connection, and resets it once it is over 2 minutes.
+			if( mqttCoolDownInterval > 120000 )
+				mqttCoolDownInterval = 0;
+			mqttCoolDownInterval += 10000;
 		}
 
-		int attemptNumber = 0;
-		// Loop until MQTT has connected.
-		while( !mqttClient.connected() && attemptNumber < maxAttempts )
-		{
-			// Put the macAddress and random number into clientId.
-			char clientId[22];
-			// Optionally add random( 999 ) to this to create a pseudo-random client ID.
-			//			snprintf( clientId, 22, "%s-%03ld", macAddress, random( 999 ) );
-			snprintf( clientId, 22, "%s", macAddress );
-			// Connect to the broker using the MAC address for a clientID.  This guarantees that the clientID is unique.
-			Serial.printf( "Connecting with client ID '%s'.\n", clientId );
-			Serial.printf( "Attempt # %d....", ( attemptNumber + 1 ) );
-			if( mqttClient.connect( clientId ) )
-			{
-				lastMqttConnectionTime = millis();
-				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show the connection was successful.
-				Serial.println( " connected." );
-				if( !mqttClient.setBufferSize( BUFFER_SIZE ) )
-				{
-					Serial.printf( "Unable to create a buffer %d bytes long!\n", BUFFER_SIZE );
-					Serial.println( "Restarting the device!" );
-					ESP.restart();
-				}
-
-				// Subscribe to the command topic.
-				if( mqttClient.subscribe( MQTT_COMMAND_TOPIC ) )
-					Serial.printf( "Successfully subscribed to topic '%s'.\n", MQTT_COMMAND_TOPIC );
-				else
-					Serial.printf( "Failed to subscribe to topic '%s'!\n", MQTT_COMMAND_TOPIC );
-			}
-			else
-			{
-				lastMqttConnectionTime = millis();
-				int mqttState          = mqttClient.state();
-				/*
-					Possible values for client.state():
-					#define MQTT_CONNECTION_TIMEOUT     -4		// Note: This also comes up when the clientID is already in use.
-					#define MQTT_CONNECTION_LOST        -3
-					#define MQTT_CONNECT_FAILED         -2
-					#define MQTT_DISCONNECTED           -1
-					#define MQTT_CONNECTED               0
-					#define MQTT_CONNECT_BAD_PROTOCOL    1
-					#define MQTT_CONNECT_BAD_CLIENT_ID   2
-					#define MQTT_CONNECT_UNAVAILABLE     3
-					#define MQTT_CONNECT_BAD_CREDENTIALS 4
-					#define MQTT_CONNECT_UNAUTHORIZED    5
-				*/
-				Serial.printf( " failed!  Return code: %d", mqttState );
-				if( mqttState == -4 )
-					Serial.println( " - MQTT_CONNECTION_TIMEOUT" );
-				else if( mqttState == 2 )
-					Serial.println( " - MQTT_CONNECT_BAD_CLIENT_ID" );
-				else
-					Serial.println( "" );
-
-				if( maxAttempts > 1 )
-				{
-					Serial.printf( "Trying again in %lu seconds.\n\n", mqttReconnectDelay / MILLIS_IN_SEC );
-					delay( mqttReconnectDelay );
-				}
-
-				// This block increments the broker connection "cooldown" time by 10 seconds after every failed connection, and resets it once it is over 2 minutes.
-				if( mqttCoolDownInterval > 120000 )
-					mqttCoolDownInterval = 0;
-				mqttCoolDownInterval += 10000;
-			}
-			attemptNumber++;
-		}
-
-		if( !mqttClient.connected() )
-		{
-			Serial.println( "\n" );
-			Serial.println( "*************************************" );
-			Serial.println( "Unable to connect to the MQTT broker!" );
-			Serial.println( "*************************************" );
-			Serial.println( "\n" );
-			delay( MILLIS_IN_SEC );
-		}
+		lastMqttConnectionTime = millis();
 	}
-}  // End of mqttMultiConnect() function.
+}  // End of the mqttConnect() function.
 
 
 /**
@@ -609,8 +583,7 @@ void printTelemetry()
 	Serial.println( "MQTT stats:" );
 	Serial.printf( "  mqttConnectCount: %u\n", mqttConnectCount );
 	Serial.printf( "  mqttCoolDownInterval: %lu\n", mqttCoolDownInterval );
-	if( networkIndex != 2112 )
-		Serial.printf( "  Broker: %s:%d\n", mqttBrokerArray[networkIndex], mqttPortArray[networkIndex] );
+	Serial.printf( "  Broker: %s:%d\n", mqttClient.getServerDomain(), mqttClient.getServerPort() );
 	lookupMQTTCode( mqttClient.state(), buffer );
 	Serial.printf( "  MQTT state: %s\n", buffer );
 	Serial.printf( "  Publish count: %lu\n", publishCount );
@@ -718,78 +691,59 @@ void lookupMQTTCode( int code, char *buffer )
  */
 void publishTelemetry()
 {
-	char mqttString[BUFFER_SIZE];  // A String to hold the JSON.
-
-	// Create a JSON Document on the stack.
-	StaticJsonDocument<BUFFER_SIZE> doc;
-	// Add data: __FILE__, macAddress, ipAddress, temperature, htuTempF, htuHumidity, rssi, publishCount, notes
-	doc["sketch"]       = __FILE__;
-	doc["mac"]          = macAddress;
-	doc["ip"]           = ipAddress;
-	doc["rssi"]         = rssi;
-	doc["htuTempC"]     = averageArray( htuTempCArray );
-	doc["htuTempF"]     = cToF( averageArray( htuTempCArray ) );
-	doc["htuHumidity"]  = averageArray( htuHumidityArray );
-	doc["bmpTempC"]     = averageArray( bmpTempCArray );
-	doc["bmpTempF"]     = cToF( averageArray( bmpTempCArray ) );
-	doc["bmpPressure"]  = averageArray( bmpPressureHPaArray );
-	doc["publishCount"] = publishCount;
-
-	// Serialize the JSON into mqttString, with indentation and line breaks.
-	serializeJsonPretty( doc, mqttString );
-
 	// Publish the JSON to the MQTT broker.
-	bool success = mqttClient.publish( MQTT_TOPIC, mqttString, false );
-	if( success )
-	{
-		Serial.println( "Successfully published to:" );
-		Serial.printf( "  %s\n", MQTT_TOPIC );
+	String buffer;
+	// Device topic format: <location>/<device>/<metric>
+	// Sensor topic format: <location>/<device>/<sensor>/<metric>
+	if( mqttClient.publish( SKETCH_TOPIC, __FILE__, false ) )
+		Serial.printf( "Published '%s' to '%s'\n", __FILE__, SKETCH_TOPIC );
+	if( mqttClient.publish( MAC_TOPIC, macAddress, false ) )
+		Serial.printf( "Published '%s' to '%s'\n", macAddress, MAC_TOPIC );
+	if( mqttClient.publish( IP_TOPIC, ipAddress, false ) )
+		Serial.printf( "Published '%s' to '%s'\n", ipAddress, IP_TOPIC );
+	buffer = String( rssi, DEC );
+	if( mqttClient.publish( RSSI_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, RSSI_TOPIC );
+	buffer = String( publishCount, DEC );
+	if( mqttClient.publish( PUBLISH_COUNT_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, PUBLISH_COUNT_TOPIC );
 
-		char buffer[20];
-		// Device topic format: <location>/<device>/<metric>
-		// Sensor topic format: <location>/<device>/<sensor>/<metric>
-		if( mqttClient.publish( SKETCH_TOPIC, __FILE__, false ) )
-			Serial.printf( "  %s\n", SKETCH_TOPIC );
-		if( mqttClient.publish( MAC_TOPIC, macAddress, false ) )
-			Serial.printf( "  %s\n", MAC_TOPIC );
-		if( mqttClient.publish( IP_TOPIC, ipAddress, false ) )
-			Serial.printf( "  %s\n", IP_TOPIC );
-		if( mqttClient.publish( RSSI_TOPIC, ltoa( rssi, buffer, 10 ), false ) )
-			Serial.printf( "  %s\n", RSSI_TOPIC );
-		if( mqttClient.publish( PUBLISH_COUNT_TOPIC, ltoa( publishCount, buffer, 10 ), false ) )
-			Serial.printf( "  %s\n", PUBLISH_COUNT_TOPIC );
+	buffer = String( averageArray( htuTempCArray ), 3 );
+	if( mqttClient.publish( HTU_TEMP_C_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_C_TOPIC );
+	buffer = String( cToF( averageArray( htuTempCArray ) ), 3 );
+	//	snprintf( buffer, 25, "%f", cToF( averageArray( htuTempCArray ) ) );
+	if( mqttClient.publish( HTU_TEMP_F_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_F_TOPIC );
+	buffer = String( averageArray( htuHumidityArray ), 3 );
+	//	snprintf( buffer, 25, "%f", averageArray( htuHumidityArray ) );
+	if( mqttClient.publish( HTU_HUMIDITY_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_HUMIDITY_TOPIC );
 
-		snprintf( buffer, 25, "%f", averageArray( htuTempCArray ) );
-		if( mqttClient.publish( HTU_TEMP_C_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", HTU_TEMP_C_TOPIC );
-		snprintf( buffer, 25, "%f", cToF( averageArray( htuTempCArray ) ) );
-		if( mqttClient.publish( HTU_TEMP_F_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", HTU_TEMP_F_TOPIC );
-		snprintf( buffer, 25, "%f", averageArray( htuHumidityArray ) );
-		if( mqttClient.publish( HTU_HUMIDITY_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", HTU_HUMIDITY_TOPIC );
-
-		snprintf( buffer, 25, "%f", averageArray( bmpTempCArray ) );
-		if( mqttClient.publish( BMP_TEMP_C_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", BMP_TEMP_C_TOPIC );
-		snprintf( buffer, 25, "%f", cToF( averageArray( bmpTempCArray ) ) );
-		if( mqttClient.publish( BMP_TEMP_F_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", BMP_TEMP_F_TOPIC );
-		snprintf( buffer, 25, "%f", averageArray( bmpPressureHPaArray ) );
-		if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", BMP_PRESSURE_TOPIC );
-		snprintf( buffer, 25, "%f", averageArray( bmpAltitudeMArray ) );
-		if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", BMP_ALTITUDE_M_TOPIC );
-		snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeMArray ) ) );
-		if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", BMP_ALTITUDE_F_TOPIC );
-		snprintf( buffer, 25, "%f", seaLevelPressure );
-		if( mqttClient.publish( SEA_LEVEL_PRESSURE_TOPIC, buffer, false ) )
-			Serial.printf( "  %s\n", SEA_LEVEL_PRESSURE_TOPIC );
-	}
-	else
-		Serial.printf( "Failed to publish to '%s'.\n", MQTT_TOPIC );
+	buffer = String( averageArray( bmpTempCArray ), 3 );
+	//	snprintf( buffer, 25, "%f", averageArray( bmpTempCArray ) );
+	if( mqttClient.publish( BMP_TEMP_C_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_C_TOPIC );
+	buffer = String( cToF( averageArray( bmpTempCArray ) ), 3 );
+	//	snprintf( buffer, 25, "%f", cToF( averageArray( bmpTempCArray ) ) );
+	if( mqttClient.publish( BMP_TEMP_F_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_F_TOPIC );
+	buffer = String( averageArray( bmpPressureHPaArray ), 3 );
+	//	snprintf( buffer, 25, "%f", averageArray( bmpPressureHPaArray ) );
+	if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_PRESSURE_TOPIC );
+	buffer = String( averageArray( bmpAltitudeMArray ), 3 );
+	//	snprintf( buffer, 25, "%f", averageArray( bmpAltitudeMArray ) );
+	if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_M_TOPIC );
+	buffer = String( mToF( averageArray( bmpAltitudeMArray ) ), 3 );
+	//	snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeMArray ) ) );
+	if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_F_TOPIC );
+	buffer = String( seaLevelPressure, 1 );
+	//	snprintf( buffer, 25, "%f", seaLevelPressure );
+	if( mqttClient.publish( SEA_LEVEL_PRESSURE_TOPIC, buffer.c_str(), false ) )
+		Serial.printf( "Published '%s' to '%s'\n", buffer, SEA_LEVEL_PRESSURE_TOPIC );
 
 	Serial.printf( "Next MQTT publish in %lu seconds.\n", publishInterval / MILLIS_IN_SEC );
 	Serial.println( "\n" );
@@ -802,10 +756,10 @@ void publishTelemetry()
  */
 void toggleLED()
 {
-	if( digitalRead( LED_PIN ) != 1 )
-		digitalWrite( LED_PIN, 1 );
+	if( digitalRead( LED_PIN ) != LED_ON )
+		digitalWrite( LED_PIN, LED_ON );
 	else
-		digitalWrite( LED_PIN, 0 );
+		digitalWrite( LED_PIN, LED_OFF );
 }  // End of toggleLED() function.
 
 
@@ -816,7 +770,7 @@ void loop()
 {
 	// Check the WiFi and MQTT client connection state.
 	if( !mqttClient.connected() )
-		mqttMultiConnect( 1 );
+		mqttConnect();
 	// The MQTT loop() function facilitates the receiving of messages and maintains the connection to the broker.
 	mqttClient.loop();
 	// The OTA handle() function broadcasts this device's presence to compatible clients on the same Wi-Fi network.
@@ -842,7 +796,7 @@ void loop()
 
 	currentTime = millis();
 	// Process the first currentTime.  Avoid subtraction overflow.  Process every interval.
-	if( lastLedBlinkTime == 0 || ( ( currentTime > ledBlinkInterval ) && ( currentTime - ledBlinkInterval ) > lastLedBlinkTime ) )
+	if( lastLedBlinkTime == 0 || ( ( currentTime > LED_BLINK_INTERVAL ) && ( currentTime - LED_BLINK_INTERVAL ) > lastLedBlinkTime ) )
 	{
 		// If Wi-Fi is connected, but MQTT is not, blink the LED.
 		if( WiFi.status() == WL_CONNECTED )
@@ -850,10 +804,10 @@ void loop()
 			if( mqttClient.state() != 0 )
 				toggleLED();
 			else
-				digitalWrite( LED_PIN, 0 );  // Turn the LED on to show both Wi-Fi and MQTT are connected.
+				digitalWrite( LED_PIN, LED_ON );  // Turn the LED on to show both Wi-Fi and MQTT are connected.
 		}
 		else
-			digitalWrite( LED_PIN, 1 );  // Turn the LED off to show that Wi-Fi is not connected.
+			digitalWrite( LED_PIN, LED_OFF );  // Turn the LED off to show that Wi-Fi is not connected.
 		lastLedBlinkTime = millis();
 	}
 
