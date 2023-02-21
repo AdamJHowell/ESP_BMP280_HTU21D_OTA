@@ -51,19 +51,12 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	else if( strcmp( command, "changeSeaLevelPressure" ) == 0 )
 	{
 		Serial.println( "Changing the publish interval because MQTT received the 'changeTelemetryInterval' command." );
-		unsigned long tempValue = callbackJsonDoc["value"];
+		float tempValue = callbackJsonDoc["value"];
 		// Only update the value if it is greater than 400 hPa and less than 1500 hPa.
 		if( tempValue > 400 && tempValue < 1500 )
 			seaLevelPressure = tempValue;
 		Serial.printf( "Sea level pressure has been updated to %f\n", seaLevelPressure );
 		lastPublishTime = 0;
-	}
-	else if( strcmp( command, "publishStats" ) == 0 )
-	{
-		Serial.println( "Publishing stats because MQTT received the 'publishStats' command." );
-		readTelemetry();
-		lastPollTime = millis();
-		publishTelemetry();
 	}
 	else
 		Serial.printf( "Unknown command: %s\n", command );
@@ -231,7 +224,7 @@ void setupHTU21D()
 			Serial.println( "Failed again to initialize the HTU21D!" );
 			Serial.println( "Check the wiring and I2C bus settings." );
 			Serial.println( "Going into an infinite loop..." );
-			while( 1 )
+			while( true )
 				delay( 3 );
 		}
 	}
@@ -252,7 +245,7 @@ void setupBMP280()
 		Serial.println( "Could not find a valid BMP280 sensor!" );
 		Serial.println( "Check the wiring and I2C bus settings." );
 		Serial.println( "Going into an infinite loop..." );
-		while( 1 )
+		while( true )
 			delay( 3 );
 	}
 	/* Default settings from datasheet. */
@@ -712,36 +705,28 @@ void publishTelemetry()
 	if( mqttClient.publish( HTU_TEMP_C_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_C_TOPIC );
 	buffer = String( cToF( averageArray( htuTempCArray ) ), 3 );
-	//	snprintf( buffer, 25, "%f", cToF( averageArray( htuTempCArray ) ) );
 	if( mqttClient.publish( HTU_TEMP_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_F_TOPIC );
 	buffer = String( averageArray( htuHumidityArray ), 3 );
-	//	snprintf( buffer, 25, "%f", averageArray( htuHumidityArray ) );
 	if( mqttClient.publish( HTU_HUMIDITY_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_HUMIDITY_TOPIC );
 
 	buffer = String( averageArray( bmpTempCArray ), 3 );
-	//	snprintf( buffer, 25, "%f", averageArray( bmpTempCArray ) );
 	if( mqttClient.publish( BMP_TEMP_C_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_C_TOPIC );
 	buffer = String( cToF( averageArray( bmpTempCArray ) ), 3 );
-	//	snprintf( buffer, 25, "%f", cToF( averageArray( bmpTempCArray ) ) );
 	if( mqttClient.publish( BMP_TEMP_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_F_TOPIC );
 	buffer = String( averageArray( bmpPressureHPaArray ), 3 );
-	//	snprintf( buffer, 25, "%f", averageArray( bmpPressureHPaArray ) );
 	if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_PRESSURE_TOPIC );
 	buffer = String( averageArray( bmpAltitudeMArray ), 3 );
-	//	snprintf( buffer, 25, "%f", averageArray( bmpAltitudeMArray ) );
 	if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_M_TOPIC );
 	buffer = String( mToF( averageArray( bmpAltitudeMArray ) ), 3 );
-	//	snprintf( buffer, 25, "%f", mToF( averageArray( bmpAltitudeMArray ) ) );
 	if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_F_TOPIC );
 	buffer = String( seaLevelPressure, 1 );
-	//	snprintf( buffer, 25, "%f", seaLevelPressure );
 	if( mqttClient.publish( SEA_LEVEL_PRESSURE_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, SEA_LEVEL_PRESSURE_TOPIC );
 
