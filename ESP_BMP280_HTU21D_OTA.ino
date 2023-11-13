@@ -701,29 +701,29 @@ void publishTelemetry()
 	if( mqttClient.publish( PUBLISH_COUNT_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, PUBLISH_COUNT_TOPIC );
 
-	buffer = String( averageArray( htuTempCArray ), 3 );
+	buffer = String( averageArray( htuTempCArray ), 1 );
 	if( mqttClient.publish( HTU_TEMP_C_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_C_TOPIC );
-	buffer = String( cToF( averageArray( htuTempCArray ) ), 3 );
+	buffer = String( cToF( averageArray( htuTempCArray ) ), 1 );
 	if( mqttClient.publish( HTU_TEMP_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_TEMP_F_TOPIC );
-	buffer = String( averageArray( htuHumidityArray ), 3 );
+	buffer = String( averageArray( htuHumidityArray ), 1 );
 	if( mqttClient.publish( HTU_HUMIDITY_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, HTU_HUMIDITY_TOPIC );
 
-	buffer = String( averageArray( bmpTempCArray ), 3 );
+	buffer = String( averageArray( bmpTempCArray ), 1 );
 	if( mqttClient.publish( BMP_TEMP_C_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_C_TOPIC );
-	buffer = String( cToF( averageArray( bmpTempCArray ) ), 3 );
+	buffer = String( cToF( averageArray( bmpTempCArray ) ), 1 );
 	if( mqttClient.publish( BMP_TEMP_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_TEMP_F_TOPIC );
-	buffer = String( averageArray( bmpPressureHPaArray ), 3 );
+	buffer = String( averageArray( bmpPressureHPaArray ), 1 );
 	if( mqttClient.publish( BMP_PRESSURE_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_PRESSURE_TOPIC );
-	buffer = String( averageArray( bmpAltitudeMArray ), 3 );
+	buffer = String( averageArray( bmpAltitudeMArray ), 1 );
 	if( mqttClient.publish( BMP_ALTITUDE_M_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_M_TOPIC );
-	buffer = String( mToF( averageArray( bmpAltitudeMArray ) ), 3 );
+	buffer = String( mToF( averageArray( bmpAltitudeMArray ) ), 1 );
 	if( mqttClient.publish( BMP_ALTITUDE_F_TOPIC, buffer.c_str(), false ) )
 		Serial.printf( "Published '%s' to '%s'\n", buffer, BMP_ALTITUDE_F_TOPIC );
 	buffer = String( seaLevelPressure, 1 );
