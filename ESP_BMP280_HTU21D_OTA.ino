@@ -25,7 +25,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	callbackCount++;
 	Serial.printf( "\nMessage arrived on Topic: '%s'\n", topic );
 
-	StaticJsonDocument<BUFFER_SIZE> callbackJsonDoc;
+  JsonDocument callbackJsonDoc;
 	deserializeJson( callbackJsonDoc, payload, length );
 
 	// The command can be: publishTelemetry, publishStatus, changeTelemetryInterval, or changePublishInterval.
