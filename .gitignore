@@ -1,41 +1,71 @@
+##############
+## My files ##
+##############
+# Network password files
+[pP]rivate[iI]nfo.*
+network[vV]ariables.*
+work[nN]etwork[vV]ariables.*
+
+# CMake files
 cmake-build-*/
+debug_custom.json
+
+# Arduino IDE files
+debug_custom.json
+esp*.svd
+
+# Visual Studio files
 .vscode/
+c_cpp_properties.json
+
+# JetBrains IDE files
 .idea/
 *.iml
-privateInfo.*
-debug_custom.json
-*.svd
-networkVariables.h
 
-# Prerequisites
-*.d
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+####################
+## JetBrains IDEs ##
+####################
+.idea/
+*.iml
 
-# Precompiled Headers
-*.gch
-*.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+######################
+## Windows detritus ##
+######################
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
 
-# Fortran module files
-*.mod
-*.smod
+# Folder config file
+Desktop.ini
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
 
-# Executables
-*.exe
-*.out
-*.app
+
+#############
+# Mac crap ##
+#############
+.DS_Store
+
+
+############
+## Python ##
+############
+*.py[co]
+venv/
+
+# Packages
+*.egg
+*.egg-info
+dist/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+
+# Installer logs
+pip-log.txt
