@@ -25,7 +25,7 @@ void onMessage( char *topic, byte *payload, unsigned int length )
 	callbackCount++;
 	Serial.printf( "\nMessage arrived on Topic: '%s'\n", topic );
 
-  JsonDocument callbackJsonDoc;
+	JsonDocument callbackJsonDoc;
 	deserializeJson( callbackJsonDoc, payload, length );
 
 	// The command can be: publishTelemetry, publishStatus, changeTelemetryInterval, or changePublishInterval.
@@ -181,12 +181,12 @@ void configureOTA()
 
 	// Configure the OTA callbacks.
 	ArduinoOTA.onStart( []() {
-		String type = "flash";  // U_FLASH
+		String flashType = "flash";  // U_FLASH
 		if( ArduinoOTA.getCommand() == U_SPIFFS )
-			type = "filesystem";
+			flashType = "filesystem";
 		// NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
 		Serial.print( "OTA is updating the " );
-		Serial.println( type );
+		Serial.println( flashType );
 	} );
 	ArduinoOTA.onEnd( []() { Serial.println( "\nTerminating OTA communication." ); } );
 	ArduinoOTA.onProgress( []( unsigned int progress, unsigned int total ) { Serial.printf( "OTA progress: %u%%\r", ( progress / ( total / 100 ) ) ); } );
@@ -307,12 +307,11 @@ bool wifiConnect( const char *ssid, const char *password )
  */
 void wifiMultiConnect()
 {
-	long time = millis();
-	if( lastWifiConnectTime == 0 || ( time > wifiCoolDownInterval && ( time - wifiCoolDownInterval ) > lastWifiConnectTime ) )
+	if( lastWifiConnectTime == 0 || ( millis() > wifiCoolDownInterval && ( millis() - wifiCoolDownInterval ) > lastWifiConnectTime ) )
 	{
 		Serial.println( "\nEntering wifiMultiConnect()" );
 		digitalWrite( LED_PIN, LED_OFF );  // Turn the LED off to show that Wi-Fi is not yet connected.
-		unsigned int arraySize = sizeof( wifiSsidArray );
+		constexpr unsigned int arraySize = sizeof( wifiSsidArray );
 		for( unsigned int networkArrayIndex = 0; networkArrayIndex < arraySize; networkArrayIndex++ )
 		{
 			// Get the details for this connection attempt.
@@ -382,9 +381,8 @@ int checkForSSID( const char *ssidName )
  */
 void mqttConnect()
 {
-	long time = millis();
 	// Connect the first time.  Avoid subtraction overflow.  Connect after cool down.
-	if( lastMqttConnectionTime == 0 || ( time > mqttCoolDownInterval && ( time - mqttCoolDownInterval ) > lastMqttConnectionTime ) )
+	if( lastMqttConnectionTime == 0 || ( millis() > mqttCoolDownInterval && ( millis() - mqttCoolDownInterval ) > lastMqttConnectionTime ) )
 	{
 		mqttConnectCount++;
 		digitalWrite( LED_PIN, LED_OFF );
@@ -429,7 +427,7 @@ void mqttConnect()
 /**
  * @brief cToF() will convert Celsius to Fahrenheit.
  */
-float cToF( float value )
+float cToF( const float value )
 {
 	return value * 1.8 + 32;
 }  // End of the cToF() function.
@@ -438,7 +436,7 @@ float cToF( float value )
 /**
  * @brief mToF() will convert meters to feet.
  */
-float mToF( float value )
+float mToF( const float value )
 {
 	return value * 3.28084;
 }  // End of the mToF() function.
@@ -449,7 +447,7 @@ float mToF( float value )
  */
 float averageArray( float valueArray[] )
 {
-	const unsigned int arraySize = 3;
+	constexpr unsigned int arraySize = 3;
 	float tempValue              = 0;
 	for( int i = 0; i < arraySize; ++i )
 	{
@@ -460,9 +458,9 @@ float averageArray( float valueArray[] )
 
 
 /**
- * @brief findMaximum() will return the largest value in the passed array.
+ * @brief findMaximum() will return the largest value in valueArray.
  */
-float findMaximum( float valueArray[], unsigned int size )
+float findMaximum( float valueArray[], const unsigned int size )
 {
 	float maxValue = valueArray[0];
 	for( int i = 1; i < size; ++i )
@@ -475,9 +473,9 @@ float findMaximum( float valueArray[], unsigned int size )
 
 
 /**
- * @brief findMinimum() will return the smallest value in the passed array.
+ * @brief findMinimum() will return the smallest value in valueArray.
  */
-float findMinimum( float valueArray[], unsigned int size )
+float findMinimum( float valueArray[], const unsigned int size )
 {
 	float minValue = valueArray[0];
 	for( int i = 1; i < size; ++i )
@@ -490,10 +488,10 @@ float findMinimum( float valueArray[], unsigned int size )
 
 
 /**
- * @brief addValue() will add the passed value to the 0th element of the passed array, after moving the existing array values to higher indexes.
+ * @brief addValue() will add the passed value to the 0th element of valueArray, after moving the existing array values to higher indexes.
  * If value is less than minValue, or greater than maxValue, it will be discarded and nothing will be added to valueArray.
  */
-void addValue( float valueArray[], unsigned int size, float value, float minValue, float maxValue )
+void addValue( float valueArray[], const unsigned int size, float value, float minValue, float maxValue )
 {
 	// Prevent sensor anomalies from getting into the array.
 	if( value < minValue || value > maxValue )
@@ -604,7 +602,7 @@ void printTelemetry()
 /**
  * @brief lookupWifiCode() will return the string for an integer code.
  */
-void lookupWifiCode( int code, char *buffer )
+void lookupWifiCode( const int code, char *buffer )
 {
 	switch( code )
 	{
@@ -638,7 +636,7 @@ void lookupWifiCode( int code, char *buffer )
 /**
  * @brief lookupMQTTCode() will return the string for an integer state code.
  */
-void lookupMQTTCode( int code, char *buffer )
+void lookupMQTTCode( const int code, char *buffer )
 {
 	switch( code )
 	{
@@ -753,7 +751,7 @@ void toggleLED()
  */
 void loop()
 {
-	// Check the WiFi and MQTT client connection state.
+	// Check the W-iFi and MQTT client connection state.
 	if( !mqttClient.connected() )
 		mqttConnect();
 	// The MQTT loop() function facilitates the receiving of messages and maintains the connection to the broker.
