@@ -12,6 +12,8 @@
 #include <Adafruit_HTU21DF.h>  // The Adafruit library for HTU21D sensors.
 #include <ArduinoJson.h>       // The JSON parsing library used.  Author: Benoît Blanchon  https://arduinojson.org/
 #include <ArduinoOTA.h>        // OTA - The Arduino OTA library.  Specific version of this are installed along with specific boards in board manager.
+#include <string.h>
+#include <cstdio>
 
 
 #ifdef ESP8266
