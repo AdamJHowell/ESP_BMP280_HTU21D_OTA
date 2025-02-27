@@ -1,26 +1,29 @@
 ##############
 ## My files ##
 ##############
-# Network password files
 [pP]rivate[iI]nfo.*
 network[vV]ariables.*
 work[nN]etwork[vV]ariables.*
 
-# CMake files
+
+#################
+## CMake files ##
+#################
 cmake-build-*/
 debug_custom.json
 
-# Arduino IDE files
-debug_custom.json
+
+#######################
+## Arduino IDE files ##
+#######################
 esp*.svd
 
-# Visual Studio files
+
+#########################
+## Visual Studio files ##
+#########################
 .vscode/
 c_cpp_properties.json
-
-# JetBrains IDE files
-.idea/
-*.iml
 
 
 ####################
@@ -33,14 +36,19 @@ c_cpp_properties.json
 ######################
 ## Windows detritus ##
 ######################
-# Windows image file caches
 Thumbs.db
 ehthumbs.db
 
-# Folder config file
+
+########################
+## Folder config file ##
+########################
 Desktop.ini
 
-# Recycle Bin used on file shares
+
+#####################################
+## Recycle Bin used on file shares ##
+#####################################
 $RECYCLE.BIN/
 
 
@@ -56,7 +64,10 @@ $RECYCLE.BIN/
 *.py[co]
 venv/
 
-# Packages
+
+##############
+## Packages ##
+##############
 *.egg
 *.egg-info
 dist/
@@ -67,5 +78,8 @@ sdist/
 develop-eggs/
 .installed.cfg
 
-# Installer logs
+
+####################
+## Installer logs ##
+####################
 pip-log.txt
